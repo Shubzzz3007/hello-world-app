@@ -1,0 +1,35 @@
+name: CD Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Docker Image Tag"
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: "projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          service_account: "github-actions-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy hello-service \
+            --image docker.io/${{ secrets.DOCKER_USERNAME }}/hello-app:${{ github.event.inputs.image_tag }} \
+            --platform managed \
+            --region asia-south1 \
+            --allow-unauthenticated \
+            --project ${{ secrets.GCP_PROJECT_ID }}
